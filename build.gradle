@@ -1,0 +1,137 @@
+buildscript {
+    repositories { jcenter() }
+    dependencies {
+        classpath 'se.transmode.gradle:gradle-docker:1.2'
+    }
+}
+
+plugins {
+    id "io.spring.dependency-management" version "1.0.6.RELEASE"
+    id "com.github.johnrengelman.shadow" version "4.0.0"
+    id "net.ltgt.apt-eclipse" version "0.18"
+    id "net.ltgt.apt-idea" version "0.18"
+}
+
+apply plugin:"application"
+apply plugin:"java"
+apply plugin: 'docker'
+
+version "0.1"
+group "example.micronaut"
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven { url "https://jcenter.bintray.com" }
+}
+
+dependencyManagement {
+    imports {
+        mavenBom 'io.micronaut:micronaut-bom:1.0.1'
+    }
+}
+
+dependencies {
+    annotationProcessor "io.micronaut:micronaut-inject-java"
+    annotationProcessor "io.micronaut:micronaut-validation"
+    compile "io.micronaut:micronaut-inject"
+    compile "io.micronaut:micronaut-validation"
+    compile "io.micronaut:micronaut-runtime" 
+    compile "io.micronaut:micronaut-management"
+    compile "javax.annotation:javax.annotation-api"
+    compile "io.micronaut:micronaut-http-client"
+    compile "io.micronaut:micronaut-http-server-netty"
+    compileOnly "io.micronaut:micronaut-inject-java"
+    runtime "ch.qos.logback:logback-classic:1.2.3"
+    testCompile "junit:junit:4.12"
+    testCompile "io.micronaut:micronaut-inject-java"
+    testCompile "org.hamcrest:hamcrest-all:1.3"
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+shadowJar {
+    mergeServiceFiles()
+}
+
+run.jvmArgs('-noverify', '-XX:TieredStopAtLevel=1')
+
+mainClassName = "example.micronaut.Application"
+compileJava.options.compilerArgs += '-parameters'
+compileTestJava.options.compilerArgs += '-parameters'
+
+
+task deleteDockerDir(type: Delete) {
+    delete "${buildDir}/docker"
+}
+
+
+
+task createDockerfile (dependsOn: build) {
+    doLast {
+        def dockerfile = new File("$buildDir/Dockerfile")
+
+        dockerfile.write 'FROM eu.gcr.io/wexsel-01/graalvm:1.0.0-rc9\n'
+        dockerfile << 'EXPOSE 8080\n'
+        dockerfile << 'COPY libs/*-all.jar app.jar\n'
+        dockerfile << 'ADD . build\n'
+        dockerfile << 'RUN /opt/java/graalvm-ce-1.0.0-rc9/bin/java -cp app.jar io.micronaut.graal.reflect.GraalClassLoadingAnalyzer\n'
+        dockerfile << 'RUN native-image --no-server \\\n'
+        dockerfile << '     --class-path app.jar \\\n'
+        dockerfile << '     --verbose \\\n'
+        dockerfile << '-H:-UseServiceLoaderFeature \\\n'
+        dockerfile << ' -H:IncludeResources="(.*yml)|(application.yml)|(logback.xml)|(application.yml)|(.*META-INF/services/.*)" \\\n'
+        dockerfile << '	 -H:ReflectionConfigurationFiles=build/reflect.json \\\n'
+        dockerfile << '			 -H:EnableURLProtocols=http \\\n'
+        dockerfile << '	 -H:Name=app \\\n'
+
+        dockerfile << '	 -H:Class='+mainClassName+' \\\n'
+        dockerfile << '	 -H:+ReportUnsupportedElementsAtRuntime \\\n'
+        dockerfile << '		     -Dio.netty.availableProcessors=2 \\\n'
+        dockerfile << '	         -Dio.netty.noPreferDirect=true \\\n'
+        dockerfile << '	 -Dio.netty.noUnsafe=true \\\n'
+        dockerfile << '	-Dio.netty.handler.ssl.conscrypt.useBufferAllocator=false \\\n'
+        dockerfile << '	-H:+AllowVMInspection \\\n'
+        dockerfile << '	--rerun-class-initialization-at-runtime=\'sun.security.jca.JCAUtil$CachedSecureRandomHolder,javax.net.ssl.SSLContext\' \\\n'
+        dockerfile << '	--delay-class-initialization-to-runtime=io.netty.handler.ssl.util.BouncyCastleSelfSignedCertGenerator,io.netty.handler.ssl.JdkNpnApplicationProtocolNegotiator,io.netty.handler.ssl.ReferenceCountedOpenSslEngine,io.netty.handler.codec.http.HttpObjectEncoder,io.netty.handler.codec.http.websocketx.WebSocket00FrameEncoder,io.netty.handler.ssl.util.ThreadLocalInsecureRandom\n'
+        dockerfile << '	FROM frolvlad/alpine-glibc\n'
+        dockerfile << '	RUN  apk add tini\n'
+        dockerfile << '	COPY --from=0 /app /app\n'
+        dockerfile << '	ENTRYPOINT ["tini", "--"]\n'
+        dockerfile << '	CMD ["/app"]\n'
+    }
+}
+
+def getVersionCode = { ->
+    try {
+        def stdout = new ByteArrayOutputStream()
+        exec {
+            commandLine 'git', 'rev-parse', '--short=8', 'HEAD'
+            standardOutput = stdout
+        }
+        return stdout.toString().trim()
+    }
+    catch (ignored) {
+        return "unknown"
+    }
+    project.ext.gitCommitIdAbbrev = properties.'git.commit.id.abbrev'
+
+}
+
+
+task dockerBuildCurrentImage(type: Docker, dependsOn: [build, createDockerfile]) {
+    baseImage = 'openjdk:8-jre'
+
+
+    project.ext.gitCommitIdAbbrev = getVersionCode()
+
+    applicationName = project.name
+    tagVersion = "${project.ext.gitCommitIdAbbrev}"
+    tag = "${applicationName}"
+    push = false
+
+    dockerfile = "${buildDir}/Dockerfile"
+    stageDir = file "${buildDir}/"
+}
+

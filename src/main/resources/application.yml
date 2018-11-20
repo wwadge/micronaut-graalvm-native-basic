@@ -1,0 +1,8 @@
+micronaut:
+    application:
+        name: complete
+endpoints:
+  health:
+    enabled: true
+    details-visible: ANONYMOUS
+
