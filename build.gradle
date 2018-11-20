@@ -41,8 +41,13 @@ dependencies {
     compile "javax.annotation:javax.annotation-api"
     compile "io.micronaut:micronaut-http-client"
     compile "io.micronaut:micronaut-http-server-netty"
+    compile "com.jcraft:jzlib:1.1.3" // graalvm rc9 incomple classpath workaround
+
+    compileOnly "com.oracle.substratevm:svm:1.0.0-rc9"
     compileOnly "io.micronaut:micronaut-inject-java"
     runtime "ch.qos.logback:logback-classic:1.2.3"
+    runtime "io.micronaut:micronaut-graal"
+
     testCompile "junit:junit:4.12"
     testCompile "io.micronaut:micronaut-inject-java"
     testCompile "org.hamcrest:hamcrest-all:1.3"
@@ -66,13 +71,13 @@ task deleteDockerDir(type: Delete) {
     delete "${buildDir}/docker"
 }
 
-
+mainClassName = "example.micronaut.Application"
 
 task createDockerfile (dependsOn: build) {
     doLast {
         def dockerfile = new File("$buildDir/Dockerfile")
 
-        dockerfile.write 'FROM eu.gcr.io/wexsel-01/graalvm:1.0.0-rc9\n'
+        dockerfile.write 'FROM wwadge/graalvm-ce:1.0.0-rc9\n'
         dockerfile << 'EXPOSE 8080\n'
         dockerfile << 'COPY libs/*-all.jar app.jar\n'
         dockerfile << 'ADD . build\n'
@@ -81,7 +86,7 @@ task createDockerfile (dependsOn: build) {
         dockerfile << '     --class-path app.jar \\\n'
         dockerfile << '     --verbose \\\n'
         dockerfile << '-H:-UseServiceLoaderFeature \\\n'
-        dockerfile << ' -H:IncludeResources="(.*yml)|(application.yml)|(logback.xml)|(application.yml)|(.*META-INF/services/.*)" \\\n'
+        dockerfile << ' -H:IncludeResources="(.*.yml)|(.*.xml)|(application.yml)|(.*META-INF/services/.*)" \\\n'
         dockerfile << '	 -H:ReflectionConfigurationFiles=build/reflect.json \\\n'
         dockerfile << '			 -H:EnableURLProtocols=http \\\n'
         dockerfile << '	 -H:Name=app \\\n'
