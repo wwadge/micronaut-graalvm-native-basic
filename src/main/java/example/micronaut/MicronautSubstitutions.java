@@ -46,22 +46,6 @@ final class Target_io_netty_util_internal_shaded_org_jctools_util_UnsafeRefArray
 }
 
 
-//
-//@TargetClass(className = "com.google.protobuf.UnsafeUtil")
-//final class Target_com_google_protobuf_UnsafeUtil {
-//    @Alias @RecomputeFieldValue(kind = RecomputeFieldValue.Kind.FromAlias)
-//    private static final sun.misc.Unsafe UNSAFE = null;
-//
-//    @Alias @RecomputeFieldValue(kind = RecomputeFieldValue.Kind.FromAlias)
-//    private static final boolean HAS_UNSAFE_BYTEBUFFER_OPERATIONS = false;
-//
-//    @Alias @RecomputeFieldValue(kind = RecomputeFieldValue.Kind.FromAlias)
-//    private static final boolean HAS_UNSAFE_ARRAY_OPERATIONS = false;
-//
-//
-//    @Alias @RecomputeFieldValue(kind = RecomputeFieldValue.Kind.FieldOffset, declClass = Buffer.class, name = "address")
-//    private static long BUFFER_ADDRESS_OFFSET;
-//}
 
 public class MicronautSubstitutions {
 }
