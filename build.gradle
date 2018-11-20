@@ -77,16 +77,16 @@ task createDockerfile (dependsOn: build) {
     doLast {
         def dockerfile = new File("$buildDir/Dockerfile")
 
-        dockerfile.write 'FROM wwadge/graalvm-ce:1.0.0-rc9\n'
+        dockerfile.write 'FROM oracle/graalvm-ce:1.0.0-rc9\n'
         dockerfile << 'EXPOSE 8080\n'
         dockerfile << 'COPY libs/*-all.jar app.jar\n'
         dockerfile << 'ADD . build\n'
-        dockerfile << 'RUN /opt/java/graalvm-ce-1.0.0-rc9/bin/java -cp app.jar io.micronaut.graal.reflect.GraalClassLoadingAnalyzer\n'
+        dockerfile << 'RUN java -cp app.jar io.micronaut.graal.reflect.GraalClassLoadingAnalyzer\n'
         dockerfile << 'RUN native-image --no-server \\\n'
         dockerfile << '     --class-path app.jar \\\n'
         dockerfile << '     --verbose \\\n'
         dockerfile << '-H:-UseServiceLoaderFeature \\\n'
-        dockerfile << ' -H:IncludeResources="(.*.yml)|(.*.xml)|(application.yml)|(.*META-INF/services/.*)" \\\n'
+        dockerfile << ' -H:IncludeResources=".*.yml|.*.xml|application.yml|.*META-INF/services/.*" \\\n'
         dockerfile << '	 -H:ReflectionConfigurationFiles=build/reflect.json \\\n'
         dockerfile << '			 -H:EnableURLProtocols=http \\\n'
         dockerfile << '	 -H:Name=app \\\n'
